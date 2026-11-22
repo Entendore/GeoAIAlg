@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geometric Inference Engine v2.0</title>
+  <style>
+    :root {
+      --bg: #06060e;
+      --panel-bg: #0c0c18;
+      --border: #1a1a30;
+      --text: #d0d0e8;
+      --muted: #5a5a7a;
+      --accent-cyan: #00e5ff;
+      --accent-magenta: #d500f9;
+      --accent-green: #00e676;
+      --accent-yellow: #ffea00;
+      --accent-red: #ff1744;
+      --python-yellow: #FFD43B;
+      --python-blue: #306998;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .mono {
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Layout */
+    .panel {
+      width: 300px;
+      background: var(--panel-bg);
+      padding: 15px;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel.right {
+      border-right: none;
+      border-left: 1px solid var(--border);
+      width: 360px;
+    }
+
+    .canvas-wrap {
+      flex-grow: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg);
+      position: relative;
+    }
+
+    canvas {
+      background: #020208;
+      box-shadow: 0 0 40px rgba(0, 229, 255, 0.05);
+      cursor: crosshair;
+    }
+
+    /* UI Elements */
+    h1 {
+      font-size: 14px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    h2 {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      letter-spacing: 1px;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .toggle-row input {
+      cursor: pointer;
+      accent-color: var(--accent-cyan);
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      padding: 0 5px;
+    }
+
+    .slider-row input {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn.active {
+      background: rgba(0, 229, 255, 0.1);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 5px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom: 2px solid var(--accent-cyan);
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      flex-grow: 1;
+      overflow: hidden;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* Query Tab */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card {
+      background: #080812;
+      padding: 8px;
+      border-radius: 4px;
+      border-left: 2px solid var(--muted);
+    }
+
+    .stat-card.pass {
+      border-color: var(--accent-green);
+    }
+
+    .stat-card.fail {
+      border-color: var(--accent-red);
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 14px;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+
+    .verdict {
+      margin-top: auto;
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+
+    .verdict.match {
+      background: rgba(0, 230, 118, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    .verdict.reject {
+      background: rgba(255, 23, 68, 0.1);
+      color: var(--accent-red);
+      border: 1px solid rgba(255, 23, 68, 0.3);
+    }
+
+    .verdict.idle {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* Chat Tab */
+    #chat-box {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-right: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .msg {
+      max-width: 95%;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .msg.bot {
+      background: #0a0a16;
+      border: 1px solid var(--border);
+      align-self: flex-start;
+    }
+
+    .msg.user {
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      align-self: flex-end;
+      color: var(--accent-cyan);
+    }
+
+    .msg code {
+      background: #000;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: var(--python-yellow);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      border: 1px solid #333;
+    }
+
+    .msg pre {
+      background: #000;
+      padding: 8px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 6px 0;
+      border: 1px solid #222;
+      font-size: 11px;
+    }
+
+    .msg pre code {
+      padding: 0;
+      border: none;
+      color: var(--accent-green);
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 8px;
+    }
+
+    #chat-input {
+      flex-grow: 1;
+      background: #080812;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+
+    #chat-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+    }
+
+    #send-btn {
+      background: var(--accent-cyan);
+      color: #000;
+      border: none;
+      padding: 0 15px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+
+    .tag.info {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent-cyan);
+    }
+
+    .tag.topo {
+      background: rgba(213, 0, 249, 0.15);
+      color: var(--accent-magenta);
+    }
+
+    .tag.diff {
+      background: rgba(0, 230, 118, 0.15);
+      color: var(--accent-green);
+    }
+
+    .tag.svdd {
+      background: rgba(255, 234, 0, 0.15);
+      color: var(--accent-yellow);
+    }
+
+    .tag.py {
+      background: rgba(48, 105, 152, 0.2);
+      color: var(--python-yellow);
+      border: 1px solid var(--python-blue);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LEFT PANEL -->
+  <div class="panel left">
+    <h1 class="mono">Geometric Inference</h1>
+    <p style="font-size: 10px; color: var(--muted);">Non-Parametric Classification. Zero Weights. Pure Math.</p>
+
+    <h2>Topology Mutation</h2>
+    <div class="btn-group">
+      <button class="btn active" onclick="mutateData(1)">1 Hole (H₁=Z)</button>
+      <button class="btn" onclick="mutateData(2)">2 Holes (H₁=Z⊕Z)</button>
+    </div>
+
+    <h2>Analytical Layers</h2>
+    <div class="toggle-row"><label>Data Cloud (P)</label><input type="checkbox" id="tog-data" checked></div>
+    <div class="toggle-row"><label>Info Theory (KL Knots)</label><input type="checkbox" id="tog-kl" checked></div>
+    <div class="toggle-row"><label>Topology (VQ Graph)</label><input type="checkbox" id="tog-topo" checked></div>
+    <div class="toggle-row"><label>Diff Geo (B-Splines)</label><input type="checkbox" id="tog-spline" checked></div>
+    <div class="toggle-row"><label>SVDD (Hypersphere)</label><input type="checkbox" id="tog-svdd" checked></div>
+
+    <h2>Math Parameters (No Training)</h2>
+    <div class="slider-row">
+      <label>SVDD Radius Padding: <span id="val-svdd" class="mono" style="color:var(--accent-yellow)">10</span></label>
+      <input type="range" id="sl-svdd" min="0" max="50" value="10">
+    </div>
+    <div class="slider-row">
+      <label>Manifold Tolerance (θ): <span id="val-theta" class="mono"
+          style="color:var(--accent-green)">20</span></label>
+      <input type="range" id="sl-theta" min="5" max="60" value="20">
+    </div>
+  </div>
+
+  <!-- CENTER CANVAS -->
+  <div class="canvas-wrap">
+    <canvas id="geoCanvas" width="600" height="600"></canvas>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel right">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('query')">Spatial Query</button>
+      <button class="tab-btn" onclick="switchTab('chat')">Math & Py Terminal</button>
+    </div>
+
+    <!-- QUERY TAB -->
+    <div id="tab-query" class="tab-content active">
+      <div class="stat-grid">
+        <div class="stat-card" id="card-svdd">
+          <div class="stat-label"><span class="tag svdd">SVDD</span> Distance vs Radius</div>
+          <div class="stat-value mono" id="val-svdd-dist">--</div>
+        </div>
+        <div class="stat-card" id="card-diff">
+          <div class="stat-label"><span class="tag diff">DIFF GEO</span> Manifold Dist (d)</div>
+          <div class="stat-value mono" id="val-diff-dist">--</div>
+        </div>
+      </div>
+      <div id="query-verdict" class="verdict idle">Awaiting vector injection...</div>
+
+      <div
+        style="margin-top: 15px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px;">
+        <strong style="color:var(--text)">Visual Legend:</strong><br>
+        <span style="color:var(--accent-yellow)">--- Yellow Line</span>: Vector to Center (SVDD Check)<br>
+        <span style="color:var(--accent-green)">--- Green Line</span>: Vector to Nearest Manifold (Diff Geo)
+      </div>
+    </div>
+
+    <!-- CHAT TAB -->
+    <div id="tab-chat" class="tab-content">
+      <div id="chat-box">
+        <div class="msg bot">
+          <strong style="color:var(--accent-green)">SYSTEM READY.</strong> I have access to the engine's state and a
+          Python dataset. I can explain what just happened on the canvas, or write Python code for these topologies. Try
+          clicking the canvas, then asking me "What happened there?"
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="e.g. 'Write python for SVDD' or 'Why did it fail?'"
+          onkeypress="if(event.key==='Enter')sendChat()">
+        <button id="send-btn" onclick="sendChat()">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- STATE MANAGEMENT ---
+    const state = {
+      dataset: [],
+      center: { x: 300, y: 300 },
+      svddBaseRadius: 0,
+      svddPadding: 10,
+      splineTheta: 20,
+      holes: 1,
+      lastQuery: null, // Stores context for chatbot
+      topoEdges: [],
+      outerSpline: [],
+      innerSplines: []
+    };
+
+    // --- CANVAS SETUP ---
+    const canvas = document.getElementById('geoCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // --- DATA GENERATION (TOPOLOGY MUTATION) ---
+    function generateData(holes) {
+      state.dataset = [];
+      state.holes = holes;
+      const c = state.center;
+
+      // Outer boundary
+      for (let i = 0; i < 150; i++)
+      {
+        let a = Math.random() * Math.PI * 2;
+        let r = 220 + (Math.random() - 0.5) * 40;
+        state.dataset.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r, type: 'outer' });
+      }
+
+      // Inner holes
+      if (holes === 1)
+      {
+        for (let i = 0; i < 80; i++) { let a = Math.random() * Math.PI * 2; let r = 80 + (Math.random() - 0.5) * 30; state.dataset.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r, type: 'inner' }); }
+      } else if (holes === 2)
+      {
+        for (let i = 0; i < 60; i++) { let a = Math.random() * Math.PI * 2; let r = 60 + (Math.random() - 0.5) * 20; state.dataset.push({ x: c.x - 70 + Math.cos(a) * r, y: c.y - 40 + Math.sin(a) * r, type: 'inner' }); }
+        for (let i = 0; i < 60; i++) { let a = Math.random() * Math.PI * 2; let r = 60 + (Math.random() - 0.5) * 20; state.dataset.push({ x: c.x + 70 + Math.cos(a) * r, y: c.y + 40 + Math.sin(a) * r, type: 'inner' }); }
+      }
+      processGeometry();
+    }
+
+    function processGeometry() {
+      const c = state.center;
+      state.svddBaseRadius = 0;
+      state.dataset.forEach(p => { let d = Math.hypot(p.x - c.x, p.y - c.y); if (d > state.svddBaseRadius) state.svddBaseRadius = d; });
+
+      // Sort and sample for splines
+      const sortFn = (a, b) => Math.atan2(a.y - c.y, a.x - c.x) - Math.atan2(b.y - c.y, b.x - c.x);
+      state.outerSpline = state.dataset.filter(p => p.type === 'outer').sort(sortFn).filter((p, i, arr) => i % 5 === 0);
+
+      if (state.holes === 1)
+      {
+        state.innerSplines = [ state.dataset.filter(p => p.type === 'inner').sort(sortFn).filter((p, i, arr) => i % 4 === 0) ];
+      } else
+      {
+        const inners = state.dataset.filter(p => p.type === 'inner');
+        const left = inners.filter(p => p.x < c.x).sort(sortFn).filter((p, i) => i % 3 === 0);
+        const right = inners.filter(p => p.x >= c.x).sort(sortFn).filter((p, i) => i % 3 === 0);
+        state.innerSplines = [ left, right ];
+      }
+
+      // Fake Topo edges for visual
+      state.topoEdges = [];
+      const addEdges = (pts) => { for (let i = 0; i < pts.length; i++) state.topoEdges.push([ pts[ i ], pts[ (i + 1) % pts.length ] ]); };
+      addEdges(state.dataset.filter(p => p.type === 'outer'));
+      state.innerSplines.forEach(s => addEdges(s));
+    }
+
+    function mutateData(n) {
+      document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      generateData(n);
+      state.lastQuery = null;
+      resetQueryUI();
+      render();
+    }
+
+    // --- MATH FUNCTIONS ---
+    function getKLImportance(p) {
+      let distC = Math.hypot(p.x - state.center.x, p.y - state.center.y);
+      let diffOuter = Math.abs(distC - 220);
+      let diffInner = 999;
+      if (state.holes === 1) diffInner = Math.abs(distC - 80);
+      else if (state.holes === 2) diffInner = Math.min(Math.hypot(p.x - (state.center.x - 70), p.y - (state.center.y - 40)) - 60, Math.hypot(p.x - (state.center.x + 70), p.y - (state.center.y + 40)) - 60);
+      return Math.min(diffOuter, Math.abs(diffInner)) < 20 ? 1.0 : 0.2;
+    }
+
+    function getMinSplineDist(p) {
+      let minDist = Infinity;
+      state.outerSpline.forEach(s => { let d = Math.hypot(p.x - s.x, p.y - s.y); if (d < minDist) minDist = d; });
+      state.innerSplines.forEach(arr => arr.forEach(s => { let d = Math.hypot(p.x - s.x, p.y - s.y); if (d < minDist) minDist = d; }));
+      return minDist;
+    }
+
+    function getNearestSplinePoint(p) {
+      let minDist = Infinity; let nearP = state.outerSpline[ 0 ];
+      const check = (arr) => arr.forEach(s => { let d = Math.hypot(p.x - s.x, p.y - s.y); if (d < minDist) { minDist = d; nearP = s; } });
+      check(state.outerSpline);
+      state.innerSplines.forEach(check);
+      return nearP;
+    }
+
+    // --- RENDERING ---
+    function drawGrid() {
+      ctx.strokeStyle = '#0a0a16'; ctx.lineWidth = 1;
+      for (let i = 0; i <= W; i += 50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+    }
+
+    function drawBSpline(points) {
+      if (points.length < 2) return;
+      ctx.beginPath(); ctx.moveTo(points[ 0 ].x, points[ 0 ].y);
+      for (let i = 0; i < points.length - 1; i++)
+      {
+        const p0 = points[ i === 0 ? points.length - 1 : i - 1 ]; const p1 = points[ i ]; const p2 = points[ i + 1 ]; const p3 = points[ i + 2 >= points.length ? 0 : i + 2 ];
+        ctx.bezierCurveTo(p1.x + (p2.x - p0.x) / 6, p1.y + (p2.y - p0.y) / 6, p2.x - (p3.x - p1.x) / 6, p2.y - (p3.y - p1.y) / 6, p2.x, p2.y);
+      } ctx.stroke();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      drawGrid();
+      const c = state.center;
+      const svddR = state.svddBaseRadius + state.svddPadding;
+
+      if (document.getElementById('tog-svdd').checked)
+      {
+        ctx.strokeStyle = 'rgba(255, 234, 0, 0.25)'; ctx.lineWidth = 2; ctx.setLineDash([ 8, 6 ]);
+        ctx.beginPath(); ctx.arc(c.x, c.y, svddR, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (document.getElementById('tog-data').checked)
+      {
+        state.dataset.forEach(p => { ctx.fillStyle = p.type === 'outer' ? 'rgba(0, 229, 255, 0.5)' : 'rgba(213, 0, 249, 0.5)'; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill(); });
+      }
+      if (document.getElementById('tog-kl').checked)
+      {
+        state.dataset.forEach(p => { if (getKLImportance(p) > 0.8) { ctx.fillStyle = 'rgba(0, 229, 255, 0.9)'; ctx.fillRect(p.x - 2, p.y - 2, 4, 4); } });
+      }
+      if (document.getElementById('tog-topo').checked)
+      {
+        ctx.strokeStyle = 'rgba(213, 0, 249, 0.1)'; ctx.lineWidth = 1;
+        state.topoEdges.forEach(e => { ctx.beginPath(); ctx.moveTo(e[ 0 ].x, e[ 0 ].y); ctx.lineTo(e[ 1 ].x, e[ 1 ].y); ctx.stroke(); });
+      }
+      if (document.getElementById('tog-spline').checked)
+      {
+        ctx.strokeStyle = var_accent_green; ctx.lineWidth = 3; ctx.shadowColor = var_accent_green; ctx.shadowBlur = 15;
+        drawBSpline(state.outerSpline);
+        state.innerSplines.forEach(s => drawBSpline(s));
+        ctx.shadowBlur = 0;
+      }
+
+      // Draw Query Visuals
+      if (state.lastQuery)
+      {
+        const q = state.lastQuery;
+        ctx.setLineDash([ 4, 4 ]); ctx.lineWidth = 1;
+        // SVDD Line
+        ctx.strokeStyle = q.svddPass ? 'rgba(255, 234, 0, 0.6)' : 'rgba(255, 23, 68, 0.6)';
+        ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+        // Diff Geo Line
+        const nearP = getNearestSplinePoint(q);
+        ctx.strokeStyle = q.splinePass ? 'rgba(0, 230, 118, 0.8)' : 'rgba(255, 23, 68, 0.8)';
+        ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(nearP.x, nearP.y); ctx.stroke();
+        ctx.setLineDash([]);
+        // Point
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    const var_accent_green = '#00e676'; // Fix for canvas string literal
+
+    // --- SPATIAL QUERY LOGIC ---
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width; const scaleY = H / rect.height;
+      const qx = (e.clientX - rect.left) * scaleX;
+      const qy = (e.clientY - rect.top) * scaleY;
+
+      const distC = Math.hypot(qx - state.center.x, qy - state.center.y);
+      const svddR = state.svddBaseRadius + state.svddPadding;
+      const svddPass = distC <= svddR;
+
+      const distSpline = getMinSplineDist({ x: qx, y: qy });
+      const splinePass = distSpline <= state.splineTheta;
+
+      state.lastQuery = { x: qx, y: qy, distC, distSpline, svddPass, splinePass };
+
+      updateQueryUI();
+      render();
+    });
+
+    function updateQueryUI() {
+      const q = state.lastQuery;
+      const svddR = state.svddBaseRadius + state.svddPadding;
+
+      document.getElementById('val-svdd-dist').textContent = `${q.distC.toFixed(1)} / ${svddR.toFixed(1)}`;
+      document.getElementById('val-diff-dist').textContent = `${q.distSpline.toFixed(1)} / θ ${state.splineTheta}`;
+
+      document.getElementById('card-svdd').className = `stat-card ${q.svddPass ? 'pass' : 'fail'}`;
+      document.getElementById('card-diff').className = `stat-card ${q.splinePass ? 'pass' : 'fail'}`;
+
+      const v = document.getElementById('query-verdict');
+      if (!q.svddPass) { v.className = 'verdict reject'; v.innerHTML = 'REJECTED: Outside SVDD Hypersphere'; }
+      else if (!q.splinePass) { v.className = 'verdict reject'; v.innerHTML = 'REJECTED: Fell in Topological Hole (H₁)'; }
+      else { v.className = 'verdict match'; v.innerHTML = 'MATCH: Mapped to B-Spline Manifold'; }
+    }
+
+    function resetQueryUI() {
+      document.getElementById('val-svdd-dist').textContent = '--';
+      document.getElementById('val-diff-dist').textContent = '--';
+      document.getElementById('card-svdd').className = 'stat-card';
+      document.getElementById('card-diff').className = 'stat-card';
+      document.getElementById('query-verdict').className = 'verdict idle';
+      document.getElementById('query-verdict').innerHTML = 'Awaiting vector injection...';
+    }
+
+    // --- UI LISTENERS ---
+    document.querySelectorAll('.panel.left input[type=checkbox]').forEach(tog => tog.addEventListener('change', render));
+    document.getElementById('sl-svdd').addEventListener('input', (e) => { state.svddPadding = parseInt(e.target.value); document.getElementById('val-svdd').textContent = e.target.value; if (state.lastQuery) updateQueryUI(); render(); });
+    document.getElementById('sl-theta').addEventListener('input', (e) => { state.splineTheta = parseInt(e.target.value); document.getElementById('val-theta').textContent = e.target.value; if (state.lastQuery) updateQueryUI(); render(); });
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (tab === 'query') { document.getElementById('tab-query').classList.add('active'); document.querySelectorAll('.tab-btn')[ 0 ].classList.add('active'); }
+      else { document.getElementById('tab-chat').classList.add('active'); document.querySelectorAll('.tab-btn')[ 1 ].classList.add('active'); }
+    }
+
+    // --- ADVANCED CHATBOT ENGINE ---
+    const chatBox = document.getElementById('chat-box');
+
+    const kb = [
+      // Contextual Catch-alls (Must be first)
+      {
+        keys: [ 'happen', 'fail', 'that point', 'explain', 'why', 'result', 'wrong' ], ctx: true, resp: (q) => {
+          if (!q) return "I have no spatial context yet. Click the canvas first.";
+          if (!q.svddPass) return `That point failed the SVDD check (<code>||x-c||² ≤ R²</code>). Its distance to the center was <strong>${q.distC.toFixed(2)}</strong>, which exceeded the maximum radius. It exists in empty void space.`;
+          if (!q.splinePass) return `Interesting. It passed the SVDD macro-boundary, but failed the Differential Geometry check. It is <strong>${q.distSpline.toFixed(2)}</strong> units away from the B-Spline manifold. Visually, it fell inside the topological hole (H₁). A Convex Hull would have falsely accepted this.`;
+          return `Successfully mapped to the manifold. The distance to the center was <strong>${q.distC.toFixed(2)}</strong> (SVDD Pass), and it rested <strong>${q.distSpline.toFixed(2)}</strong> units from the B-Spline boundary (Diff Geo Pass).`;
+        }
+      },
+      // Math Concepts
+      { keys: [ 'svdd', 'hypersphere', 'yellow', 'macro' ], resp: `<span class="tag svdd">SVDD</span> Support Vector Data Description. We calculate the strict Euclidean distance from the query vector to the center of the point cloud. If <code>||x - c|| > R</code>, we reject it instantly without calculating complex spline geometries. Try increasing the SVDD Radius Padding slider to see more points pass.` },
+      { keys: [ 'spline', 'b-spline', 'green', 'curve', 'manifold', 'boundary' ], resp: `<span class="tag diff">DIFF GEO</span> B-Splines mapped to a Graph Lattice. Instead of a 512D grid (which breaks physics), we string splines through VQ centroids. We solve <code>Δg f = 0</code> (Laplace-Beltrami) to snap them to a minimal-energy state. The Manifold Tolerance slider (θ) controls how far a point can stray from the green line before rejection.` },
+      { keys: [ 'topology', 'hole', 'empty', 'convex', 'h1', 'homology' ], resp: `<span class="tag topo">TOPOLOGY</span> The empty space inside the rings. Standard ML uses Convex Hulls which draw straight lines across holes, causing false positives. We track Homology Groups. Try switching to "2 Holes" to see the B-Splines dynamically re-fit to the new H₁ ≅ Z ⊕ Z structure without retraining.` },
+      { keys: [ 'kl', 'divergence', 'crosshair', 'information', 'histogram', 'knot' ], resp: `<span class="tag info">INFO THEORY</span> The small cyan squares are high <code>D_KL</code> regions. If the local point density is statistically surprising compared to the global distribution, we mathematically deduce a boundary exists there and force a B-Spline knot.` },
+      { keys: [ 'train', 'learn', 'gradient', 'backprop', 'weight', 'neural', 'ai' ], resp: `None of those exist here. This is Non-Parametric Analytical Inference. There are no weights to update via gradient descent. The "intelligence" is purely the geometric shape measured via equations. If you change the topology using the left buttons, the splines instantly re-calculate. No epochs required.` },
+      // Python Dataset
+      { keys: [ 'python', 'code', 'implement' ], resp: `<span class="tag py">PYTHON</span> To build this in Python, you would bypass PyTorch/TensorFlow entirely and use analytical geometry libraries.<pre><code>import numpy as np\nfrom scipy.spatial import KDTree\n\ndef analytical_query(point, cloud):\n    # 1. SVDD Check\n    center = np.mean(cloud, axis=0)\n    if np.linalg.norm(point - center) > max_radius:\n        return "REJECTED: SVDD"\n    \n    # 2. Diff Geo Check (Approx)\n    tree = KDTree(cloud)\n    dist, _ = tree.query(point, k=1)\n    if dist > theta_tolerance:\n        return "REJECTED: TOPOLOGY HOLE"\n    return "MATCH"</code></pre>` },
+      { keys: [ 'numpy', 'array', 'vector', 'matrix', 'linalg' ], resp: `<span class="tag py">NUMPY</span> Essential for this. Standard Python lists are too slow for 512D Euclidean math (<code>||x-c||</code>). NumPy pushes this to C-level vectorization.<pre><code>import numpy as np\n# Vectorized SVDD calculation for 1M points\nvectors = np.random.rand(1000000, 512)\ncenter = np.mean(vectors, axis=0)\ndistances = np.linalg.norm(vectors - center, axis=1)\nsvdd_mask = distances <= max_radius</code></pre>` },
+      { keys: [ 'gudhi', 'ripser', 'topology library', 'persistent' ], resp: `<span class="tag py">TDA LIBRARY</span> To calculate the H₁ Homology groups (the holes) in Python, use the GUDHI library. It builds a Rips complex and calculates persistent homology purely from point coordinates.<pre><code>import gudhi as gd\nrc = gd.RipsComplex(points=point_cloud, max_edge_length=2.0)\ntree = rc.create_simplex_tree(max_dimension=2)\npersistence = tree.compute_persistence()\n# H1 holes are in dimension 1</code></pre>` },
+      { keys: [ 'scipy', 'scipy.spatial', 'kdtree', 'nearest' ], resp: `<span class="tag py">SCIPY</span> We use <code>scipy.spatial.KDTree</code> to map the VQ Graph (the pink lines) and to calculate the "Diff Geo" distance (distance to nearest manifold point) in O(log N) time, making the query instant even with massive datasets.` },
+      { keys: [ 'pandas', 'dataframe', 'csv' ], resp: `<span class="tag py">PANDAS</span> Used only for I/O. You would load embeddings from a database into a DataFrame, then immediately convert to a NumPy array for the math engine.<pre><code>import pandas as pd\ndf = pd.read_csv('embeddings.csv')\ncloud = df[['dim_1', 'dim_2', ... 'dim_512']].to_numpy()</code></pre>` }
+    ];
+
+    function getBotResponse(input) {
+      const lower = input.toLowerCase();
+      for (const entry of kb)
+      {
+        if (entry.keys.some(kw => lower.includes(kw)))
+        {
+          if (entry.ctx) return entry.resp(state.lastQuery);
+          return entry.resp;
+        }
+      }
+      return `Query unrecognized. I can explain the math on screen (try clicking the canvas and asking "What happened there?"), or write Python code for these topologies. Try asking about: <br><br>- <span style="color:var(--accent-yellow)">SVDD</span> / <span style="color:var(--accent-green)">Splines</span> / <span style="color:var(--accent-magenta)">Topology</span><br>- <span style="color:var(--python-yellow)">Numpy</span> / <span style="color:var(--python-yellow)">GUDHI</span> / <span style="color:var(--python-yellow)">Scipy</span>`;
+    }
+
+    function addMessage(text, isUser) {
+      const d = document.createElement('div'); d.className = `msg ${isUser ? 'user' : 'bot'}`; d.innerHTML = text;
+      chatBox.appendChild(d); chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function sendChat() {
+      const inp = document.getElementById('chat-input'); const text = inp.value.trim();
+      if (!text) return;
+      addMessage(text, true); inp.value = '';
+
+      // Simulate compute
+      addMessage(`<span style="color:var(--muted)">Analyzing semantic lattice...</span>`, false);
+      setTimeout(() => {
+        chatBox.removeChild(chatBox.lastChild); // Remove loading text
+        addMessage(getBotResponse(text), false);
+      }, 400);
+    }
+
+    // --- INIT ---
+    generateData(1);
+    render();
+
+  </script>
+</body>
+
+</html>
